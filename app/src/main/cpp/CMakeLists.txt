@@ -82,3 +82,5 @@ target_link_libraries(mcpe_client PRIVATE
 set_target_properties(mcpe_client PROPERTIES
     OUTPUT_NAME "mcpe_client"
 )
+
+list(APPEND SOURCES "${CMAKE_CURRENT_LIST_DIR}/AndroidImGuiBridge.cpp")
