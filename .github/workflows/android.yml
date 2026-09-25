@@ -1,0 +1,58 @@
+name: Android NDK CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi:
+          - arm64-v8a
+          - x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >
+            platform-tools
+            platforms;android-35
+            ndk;30.0.16248370
+            cmake;3.31.6
+
+      - name: Configure
+        shell: bash
+        env:
+          ANDROID_NDK_VERSION: "30.0.16248370"
+        run: |
+          cmake -S . -B "build/${{ matrix.abi }}" \
+            -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
+            -DANDROID_NDK="$ANDROID_NDK_ROOT" \
+            -DANDROID_ABI="${{ matrix.abi }}" \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build "build/${{ matrix.abi }}" --config Release --parallel
+
+      - name: Upload native library
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcpe-client-${{ matrix.abi }}
+          path: build/${{ matrix.abi }}/libmcpe_client.so
