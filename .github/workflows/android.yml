@@ -1,58 +1,55 @@
-name: Android NDK CI
+name: Build MCPE Client APK
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        abi:
-          - arm64-v8a
-          - x86_64
+  build-apk:
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: >
-            platform-tools
-            platforms;android-35
-            ndk;30.0.16248370
-            cmake;3.31.6
+        uses: android-actions/setup-android@v3
 
-      - name: Configure
-        shell: bash
-        env:
-          ANDROID_NDK_VERSION: "30.0.16248370"
+      - name: Install Android SDK
         run: |
-          cmake -S . -B "build/${{ matrix.abi }}" \
-            -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
-            -DANDROID_NDK="$ANDROID_NDK_ROOT" \
-            -DANDROID_ABI="${{ matrix.abi }}" \
-            -DANDROID_PLATFORM=android-24 \
-            -DCMAKE_BUILD_TYPE=Release
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.2.12479018"
 
-      - name: Build
-        run: cmake --build "build/${{ matrix.abi }}" --config Release --parallel
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
 
-      - name: Upload native library
+      - name: Build Debug APK
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk \
+             app/build/outputs/apk/debug/MCPE_Client_Project-debug.apk
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: mcpe-client-${{ matrix.abi }}
-          path: build/${{ matrix.abi }}/libmcpe_client.so
+          name: MCPE_Client_Project-debug
+          path: app/build/outputs/apk/debug/MCPE_Client_Project-debug.apk
